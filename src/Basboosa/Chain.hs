@@ -1,14 +1,14 @@
-{-# LANGUAGE JavaScriptFFI, PackageImports, OverloadedStrings, GeneralizedNewtypeDeriving, StandaloneDeriving, UndecidableInstances, TypeSynonymInstances, DeriveTraversable, DeriveGeneric, FlexibleInstances  #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Basboosa.Chain where
 
 import Basboosa.Types
---import Basboosa.PubKey
---import qualified Basboosa.Ledger as L
+import Basboosa.PubKey
+import qualified Basboosa.Ledger as L
 
 import Control.Comonad.Cofree
 
-import Crypto.Hash 
+import Crypto.Hash
 
 import Data.Binary as B
 import qualified Data.ByteString.Char8 as C
@@ -24,7 +24,7 @@ import qualified Data.ByteString as BS
 printBlockchainTxs :: Blockchain -> IO ()
 printBlockchainTxs (block :< Genesis) = do
   print $ _txs block
-printBlockchainTxs (block :< Node header parent) = do 
+printBlockchainTxs (block :< Node header parent) = do
   print $ _txs block
   printBlockchainTxs parent
 
@@ -43,7 +43,7 @@ makeGenesisFund addr = do
   return (Block [addrFund] :< Genesis)
     where
       addrFund = Transaction {
-        _from   = Account $ C.pack "A_Genesis",
+        _from   = Account "A_Genesis",
         _to     = addr ,
         _amount = 1000000000000,
         _text   = "Genesis Block - Distribution Of Funds",
@@ -86,7 +86,7 @@ byteToStringH bs = show (hash bs :: Digest SHA256)
 -- Higher Integer To Get Earlier Blocks
 getHeaderAt :: Blockchain -> Integer -> BlockHeader
 getHeaderAt (_ :< Genesis) 0 = BlockHeader {
-          _miner = Address $ C.pack "0",
+          _miner = Address "0",
           _parentHash = Hash $ "0000",
           _nonce = 0,
           _minedAt = 0,
@@ -117,22 +117,28 @@ getChainFees (block :< Node _ parent) i = getChainFees parent ((blockFees block)
 
 
 -- TODO: Fix Filters:
-{-
+
 filterSignedTransactions :: SignedTransactionPool -> TransactionPool
 filterSignedTransactions signedTxPool = do
   s <- signedTxPool
-  return $ loopCheck s
+  loopCheck s
     where
-      loopCheck [] = []
-      loopCheck (x:xs) = if verify x then (fst x) : loopCheck xs else loopCheck xs
+      loopCheck [] = return []
+      loopCheck (x:xs) = do
+        v <- verify x
+        ls <- loopCheck xs
+        if v then return $ fst x : ls else return ls
 
-      verify x = L.verifyTransactionXY (fst x) (pub $ fst x) (snd x)
+      verify x = do
+        p <- (pub $ fst x)
+        return $ verifyTx p (fst x) (snd x)
 
       pub = convertTransactionToPublicKey
 
+
 -- Check Every Account For Adequate Balance In Transaction
 filterInadequteBalanceTransaction :: Blockchain -> TransactionPool -> TransactionPool
-filterInadequteBalanceTransaction chain tx = do 
+filterInadequteBalanceTransaction chain tx = do
   txList <- tx
   let ledgerList = L.buildLedgerList chain
   return $ loopTxs ledgerList txList
@@ -140,16 +146,16 @@ filterInadequteBalanceTransaction chain tx = do
       loopTxs _ [] = []
       loopTxs l (x : xs) = if verifyBalance l x then x : (loopTxs l xs) else loopTxs l xs
 
-      verifyBalance l x = if (_from x == (Account $ C.pack "REWARD")) then True else (L.accountBalance $ L.filterLedgerToAccount (_from x) l) >= ((_amount x ) + (_fee x)) && (_amount x > 0 ) && (_to x) /= (Address $ C.empty)                                             
--}
+      verifyBalance l x = if (_from x == (Account "REWARD")) then True else (L.accountBalance $ L.filterLedgerToAccount (_from x) l) >= ((_amount x ) + (_fee x)) && (_amount x > 0 ) && (_to x) /= (Address "")
 
 
-checkReward :: Blockchain -> Bool   
+
+checkReward :: Blockchain -> Bool
 checkReward (_ :< Genesis) = True
 checkReward (block :< Node header parent) = (isMinerInHeader (_txs block) header) && checkReward parent
   where
     isMinerInHeader [] _ = True
-    isMinerInHeader (x:xs) h = if (_from x) == (Account $ C.pack "REWARD") then ( _to x) == (_miner h) && isMinerInHeader xs h else True && isMinerInHeader xs h
+    isMinerInHeader (x:xs) h = if (_from x) == (Account "REWARD") then ( _to x) == (_miner h) && isMinerInHeader xs h else True && isMinerInHeader xs h
 
 hashBlockchain :: Blockchain -> Hash
 hashBlockchain = Hash . hashToString . CL.unpack . B.encode
@@ -169,17 +175,17 @@ mineBlock acc signedTxPool parentChain = do
     now <- getPOSIXTime
     parentBlockNum <- getChainLength parentChain 0
     let currentBlockNum = parentBlockNum + 1
-    loop txs 0 now currentBlockNum   
+    loop txs 0 now currentBlockNum
   else return ((Block []) :< Genesis)
         where
         --Difficulty Check:
-        checkValidation c = (Prelude.take 1 $ hashToString $ CL.unpack $ B.encode c) == "0"
+        checkValidation c = (Prelude.take 4 $ hashToString $ CL.unpack $ B.encode c) == "0000"
         --Hash of parent blockchain:
         parentHash = Hash $ hashToString $ CL.unpack $ B.encode parentChain
         --Generates Miner Address For Miner Account
         minerAddress = convertAccountToMinerAddress acc
         --Reward Tx:
-        minerRewardTx = Transaction {_from = (Account $ C.pack "REWARD") , _to = minerAddress , _amount = minerReward, _text = "REWARD", _fee = 0, _id = Hash "0000" } 
+        minerRewardTx = Transaction {_from = Account "REWARD" , _to = minerAddress , _amount = minerReward, _text = "REWARD", _fee = 0, _id = Hash "0000" }
         --Mining Loop:
         loop tx nonce n currentBlockNum = do
           -- Constructing BlockHeader:
@@ -193,7 +199,7 @@ mineBlock acc signedTxPool parentChain = do
           let chain = ((Block $ minerRewardTx : tx) :< Node header parentChain)
           if checkValidation chain
             then return chain
-            else loop tx (nonce + 1) n currentBlockNum 
+            else loop tx (nonce + 1) n currentBlockNum
 
 
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, StandaloneDeriving, UndecidableInstances, TypeSynonymInstances, DeriveTraversable, DeriveGeneric, FlexibleInstances, PackageImports #-}
+{-# LANGUAGE OverloadedStrings, PackageImports #-}
 
 module Basboosa.PubKey where
 
@@ -29,6 +29,7 @@ import Data.ByteArray.Encoding
 import Data.List.Split
 
 import qualified Data.Mnemonic.Electrum as M
+import Basboosa.Types (Transaction (_from), PublicKey, Account, Address (Address))
 
 
 -- Proxy Of Curve ----------------------------------
@@ -80,6 +81,13 @@ convertAddressToAccount addr = Account $ "A_" ++ (splitOn "_" $ getString addr) 
 convertPrivateKeyToAccount :: PrivateKey -> Account
 convertPrivateKeyToAccount = convertPublicKeyToAccount . convertToPublicKey
 
+convertTransactionToPublicKey :: Transaction -> IO PublicKey
+convertTransactionToPublicKey = convertAccountToPublicKey . _from
+
+convertAccountToMinerAddress :: Account -> Address
+convertAccountToMinerAddress acc = Address $ "M_" ++ (splitOn "_" $ getString acc) !! 1
+    where
+        getString = (\(Account x) -> x)
 -- Signature Convertions -------------------------------------------
 
 convertSignatureToIntegers :: Signature -> SignatureInteger
@@ -91,14 +99,6 @@ generateRandomSeed :: IO String
 generateRandomSeed = do
     a <- seedNew
     return $ show $ seedToInteger a 
-
--- Hash Functions ---------------------------------------------------
-
-hashToString :: String -> String
-hashToString = byteToStringH . C.pack
-
-byteToStringH :: C.ByteString -> String
-byteToStringH bs = show (hash bs :: Digest SHA256)
 
 -- Encode/Sign/Verify ------------------------------------------------
 

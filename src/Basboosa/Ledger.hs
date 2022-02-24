@@ -1,4 +1,4 @@
-{-# LANGUAGE JavaScriptFFI, PackageImports, OverloadedStrings, GeneralizedNewtypeDeriving, StandaloneDeriving, UndecidableInstances, TypeSynonymInstances, DeriveTraversable, DeriveGeneric, FlexibleInstances  #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 
 module Basboosa.Ledger where
