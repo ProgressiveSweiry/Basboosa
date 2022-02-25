@@ -180,7 +180,13 @@ exampleTx2 = Transaction {
   _id     = Hash "0000"
 }
 
-
+exampleKey :: IO ((PrivateKey, PublicKey), (Account , Address))
+exampleKey = do
+    priv <- generatePrivateKey
+    let pub = convertToPublicKey priv
+    let acc = convertPublicKeyToAccount pub
+    addr <- convertPublicKeyToAddress pub
+    return ((priv, pub),( acc, addr))
 
 
 

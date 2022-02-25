@@ -40,8 +40,9 @@ executable Basboosa
 	
 library
   exposed-modules: 	Basboosa.Types,
-					Basboosa.PubKey,
-					Basboosa.Ledger
+					          Basboosa.PubKey,
+					          Basboosa.Ledger,
+                    Basboosa.Chain
   -- other-modules:
   -- build-depends:
   build-depends: 	base,

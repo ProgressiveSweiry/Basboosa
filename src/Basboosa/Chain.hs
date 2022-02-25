@@ -4,7 +4,7 @@ module Basboosa.Chain where
 
 import Basboosa.Types
 import Basboosa.PubKey
-import qualified Basboosa.Ledger as L
+import Basboosa.Ledger 
 
 import Control.Comonad.Cofree
 
@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
 
 
--- Print
+-- Print Blockchain --------------------------------------------------------
 
 printBlockchainTxs :: Blockchain -> IO ()
 printBlockchainTxs (block :< Genesis) = do
@@ -32,7 +32,7 @@ blockchainToTxString :: Blockchain -> String
 blockchainToTxString (block :< Genesis) = show block
 blockchainToTxString (block :< Node header parent) = show block ++ "  " ++ show header ++ "--------" ++ (blockchainToTxString parent)
 
--- Genesis
+-- Genesis ---------------------------------------------------------------------
 
 makeGenesis :: IO Blockchain
 makeGenesis = do
@@ -51,36 +51,29 @@ makeGenesisFund addr = do
         _id     = Hash $ "0"
       }
 
---Storage 
--- TODO: Create Storage Function To Files
-{-
-saveToLocalStorage :: Blockchain -> IO()
-saveToLocalStorage bc = do 
-  let s = S.localStorage
-  S.setItem (JSS.pack "BlockChainEncoded") (JSS.pack $ CL.unpack $ B.encode bc) s
+-- Storage -----------------------------------------------------------------
 
-loadFromLocalStorage :: IO Blockchain
-loadFromLocalStorage = do 
-  let s = S.localStorage
-  i <- S.getItem (JSS.pack "BlockChainEncoded") s
-  let i1 = ( CL.pack $ JSS.unpack $ maybe (JSS.pack "\NUL") (\x -> x) i )
-  i2 <- decodeToChain i1
-  return i2
--}
+saveChain :: Blockchain -> IO ()
+saveChain = writeFile chainFile . CL.unpack . B.encode 
 
+loadChain :: IO Blockchain
+loadChain = do
+  bc <- readFile chainFile
+  return $ B.decode $ CL.pack bc
 
-decodeToChain :: CL.ByteString -> IO Blockchain
-decodeToChain = return . B.decode
-
+-- Hashing -------------------------------------------------------------------
 
 -- Chaining
 hashToString :: String -> String
 hashToString = byteToStringH . C.pack
 
-
 byteToStringH :: C.ByteString -> String
 byteToStringH bs = show (hash bs :: Digest SHA256)
 
+hashBlockchain :: Blockchain -> Hash
+hashBlockchain = Hash . hashToString . CL.unpack . B.encode
+
+-- Blockchain Getters ---------------------------------------------------------
 
 -- Get Header At 0 returns Header Of Latest Block
 -- Higher Integer To Get Earlier Blocks
@@ -116,7 +109,7 @@ getChainFees (block :< Node _ parent) i = getChainFees parent ((blockFees block)
     loop a (x:xs) = loop (a + (_fee x)) xs
 
 
--- TODO: Fix Filters:
+-- Filters -------------------------------------------------------------
 
 filterSignedTransactions :: SignedTransactionPool -> TransactionPool
 filterSignedTransactions signedTxPool = do
@@ -140,14 +133,13 @@ filterSignedTransactions signedTxPool = do
 filterInadequteBalanceTransaction :: Blockchain -> TransactionPool -> TransactionPool
 filterInadequteBalanceTransaction chain tx = do
   txList <- tx
-  let ledgerList = L.buildLedgerList chain
+  let ledgerList = buildLedgerList chain
   return $ loopTxs ledgerList txList
     where
       loopTxs _ [] = []
       loopTxs l (x : xs) = if verifyBalance l x then x : (loopTxs l xs) else loopTxs l xs
 
-      verifyBalance l x = if (_from x == (Account "REWARD")) then True else (L.accountBalance $ L.filterLedgerToAccount (_from x) l) >= ((_amount x ) + (_fee x)) && (_amount x > 0 ) && (_to x) /= (Address "")
-
+      verifyBalance l x = if (_from x == (Account "REWARD")) then True else (accountBalance $ filterLedgerToAccount (_from x) l) >= ((_amount x ) + (_fee x)) && (_amount x > 0 ) && (_to x) /= (Address "")
 
 
 checkReward :: Blockchain -> Bool
@@ -157,13 +149,11 @@ checkReward (block :< Node header parent) = (isMinerInHeader (_txs block) header
     isMinerInHeader [] _ = True
     isMinerInHeader (x:xs) h = if (_from x) == (Account "REWARD") then ( _to x) == (_miner h) && isMinerInHeader xs h else True && isMinerInHeader xs h
 
-hashBlockchain :: Blockchain -> Hash
-hashBlockchain = Hash . hashToString . CL.unpack . B.encode
-
 checkBlockchainHash :: Blockchain -> Bool
 checkBlockchainHash (_ :< Genesis) = True
 checkBlockchainHash (_ :< Node header parent) = (hashBlockchain parent) == (_parentHash header)
 
+-- Mining ------------------------------------------------------------------------------------------
 
 -- Miner -> IO Transactions -> Blockchain -> updated Blockchain (IO)
 mineBlock :: Account -> SignedTransactionPool -> Blockchain -> IO Blockchain
@@ -179,7 +169,7 @@ mineBlock acc signedTxPool parentChain = do
   else return ((Block []) :< Genesis)
         where
         --Difficulty Check:
-        checkValidation c = (Prelude.take 4 $ hashToString $ CL.unpack $ B.encode c) == "0000"
+        checkValidation c = (Prelude.take 1 $ hashToString $ CL.unpack $ B.encode c) == "0"
         --Hash of parent blockchain:
         parentHash = Hash $ hashToString $ CL.unpack $ B.encode parentChain
         --Generates Miner Address For Miner Account
@@ -200,43 +190,6 @@ mineBlock acc signedTxPool parentChain = do
           if checkValidation chain
             then return chain
             else loop tx (nonce + 1) n currentBlockNum
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

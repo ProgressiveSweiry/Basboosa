@@ -88,7 +88,7 @@ deriving instance Generic (ChainT a)
 
 -- Global Number Of Txs Per Block
 blockTXs :: Int
-blockTXs = 100
+blockTXs = 10000
 
 -- Global Amount Of Reward To Miner
 minerReward :: Integer
@@ -100,7 +100,8 @@ privateFile = "privatekey.prv"
 txFile :: FilePath
 txFile = "SignedTransaction.tx"
 
-
+chainFile :: FilePath
+chainFile = "Blockchain.chain"
 
 
 
