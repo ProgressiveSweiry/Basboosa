@@ -90,6 +90,16 @@
   (major1) == 5 && (major2) <  1 || \
   (major1) == 5 && (major2) == 1 && (minor) <= 7)
 #endif /* MIN_VERSION_free */
+/* package http-types-0.12.3 */
+#ifndef VERSION_http_types
+#define VERSION_http_types "0.12.3"
+#endif /* VERSION_http_types */
+#ifndef MIN_VERSION_http_types
+#define MIN_VERSION_http_types(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  12 || \
+  (major1) == 0 && (major2) == 12 && (minor) <= 3)
+#endif /* MIN_VERSION_http_types */
 /* package memory-0.16.0 */
 #ifndef VERSION_memory
 #define VERSION_memory "0.16.0"
@@ -130,6 +140,26 @@
   (major1) == 1 && (major2) <  0 || \
   (major1) == 1 && (major2) == 0 && (minor) <= 2)
 #endif /* MIN_VERSION_utf8_string */
+/* package wai-3.2.3 */
+#ifndef VERSION_wai
+#define VERSION_wai "3.2.3"
+#endif /* VERSION_wai */
+#ifndef MIN_VERSION_wai
+#define MIN_VERSION_wai(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  2 || \
+  (major1) == 3 && (major2) == 2 && (minor) <= 3)
+#endif /* MIN_VERSION_wai */
+/* package warp-3.3.19 */
+#ifndef VERSION_warp
+#define VERSION_warp "3.3.19"
+#endif /* VERSION_warp */
+#ifndef MIN_VERSION_warp
+#define MIN_VERSION_warp(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  3 || \
+  (major1) == 3 && (major2) == 3 && (minor) <= 19)
+#endif /* MIN_VERSION_warp */
 
 /* tool gcc-13.0.0 */
 #ifndef TOOL_VERSION_gcc
