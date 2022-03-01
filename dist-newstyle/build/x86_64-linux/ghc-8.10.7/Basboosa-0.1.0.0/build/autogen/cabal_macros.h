@@ -90,6 +90,36 @@
   (major1) == 5 && (major2) <  1 || \
   (major1) == 5 && (major2) == 1 && (minor) <= 7)
 #endif /* MIN_VERSION_free */
+/* package http-client-0.7.11 */
+#ifndef VERSION_http_client
+#define VERSION_http_client "0.7.11"
+#endif /* VERSION_http_client */
+#ifndef MIN_VERSION_http_client
+#define MIN_VERSION_http_client(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  7 || \
+  (major1) == 0 && (major2) == 7 && (minor) <= 11)
+#endif /* MIN_VERSION_http_client */
+/* package http-conduit-2.3.8 */
+#ifndef VERSION_http_conduit
+#define VERSION_http_conduit "2.3.8"
+#endif /* VERSION_http_conduit */
+#ifndef MIN_VERSION_http_conduit
+#define MIN_VERSION_http_conduit(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  3 || \
+  (major1) == 2 && (major2) == 3 && (minor) <= 8)
+#endif /* MIN_VERSION_http_conduit */
+/* package http-types-0.12.3 */
+#ifndef VERSION_http_types
+#define VERSION_http_types "0.12.3"
+#endif /* VERSION_http_types */
+#ifndef MIN_VERSION_http_types
+#define MIN_VERSION_http_types(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  12 || \
+  (major1) == 0 && (major2) == 12 && (minor) <= 3)
+#endif /* MIN_VERSION_http_types */
 /* package memory-0.16.0 */
 #ifndef VERSION_memory
 #define VERSION_memory "0.16.0"
@@ -110,6 +140,16 @@
   (major1) == 0 && (major2) <  2 || \
   (major1) == 0 && (major2) == 2 && (minor) <= 3)
 #endif /* MIN_VERSION_split */
+/* package text-1.2.4.1 */
+#ifndef VERSION_text
+#define VERSION_text "1.2.4.1"
+#endif /* VERSION_text */
+#ifndef MIN_VERSION_text
+#define MIN_VERSION_text(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  2 || \
+  (major1) == 1 && (major2) == 2 && (minor) <= 4)
+#endif /* MIN_VERSION_text */
 /* package time-1.9.3 */
 #ifndef VERSION_time
 #define VERSION_time "1.9.3"
@@ -130,6 +170,26 @@
   (major1) == 1 && (major2) <  0 || \
   (major1) == 1 && (major2) == 0 && (minor) <= 2)
 #endif /* MIN_VERSION_utf8_string */
+/* package wai-3.2.3 */
+#ifndef VERSION_wai
+#define VERSION_wai "3.2.3"
+#endif /* VERSION_wai */
+#ifndef MIN_VERSION_wai
+#define MIN_VERSION_wai(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  2 || \
+  (major1) == 3 && (major2) == 2 && (minor) <= 3)
+#endif /* MIN_VERSION_wai */
+/* package warp-3.3.19 */
+#ifndef VERSION_warp
+#define VERSION_warp "3.3.19"
+#endif /* VERSION_warp */
+#ifndef MIN_VERSION_warp
+#define MIN_VERSION_warp(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  3 || \
+  (major1) == 3 && (major2) == 3 && (minor) <= 19)
+#endif /* MIN_VERSION_warp */
 
 /* tool alex-3.2.6 */
 #ifndef TOOL_VERSION_alex

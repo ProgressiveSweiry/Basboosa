@@ -32,6 +32,10 @@ blockchainToTxString :: Blockchain -> String
 blockchainToTxString (block :< Genesis) = show block
 blockchainToTxString (block :< Node header parent) = show block ++ "  " ++ show header ++ "--------" ++ (blockchainToTxString parent)
 
+blockchainToHeaderString :: Blockchain -> String
+blockchainToHeaderString (_ :< Genesis) = " "
+blockchainToHeaderString (_ :< Node header parent) = show header ++ "--------" ++ (blockchainToHeaderString parent)
+
 -- Genesis ---------------------------------------------------------------------
 
 makeGenesis :: IO Blockchain
@@ -89,14 +93,20 @@ getHeaderAt (_ :< Node header _) 0 = header
 getHeaderAt (_ :< Node _ parent) n = getHeaderAt parent $ (n-1)
 
 -- Like getHeaderAt For Transactions
-getTxsAt :: Blockchain -> Integer -> TransactionPool
-getTxsAt (_ :< Genesis) _ = return []
-getTxsAt (block :< _) 0 = return $ _txs block
+getTxsAt :: Blockchain -> Integer -> [Transaction]
+getTxsAt (block :< Genesis) _ = _txs block
+getTxsAt (block :< _) 0 = _txs block
 getTxsAt (_ :< Node _ parent) i = getTxsAt parent $ (i - 1)
 
+getTxFull :: Blockchain -> [Transaction]
+getTxFull bc = loop bc (getChainLength bc 0)
+  where
+    loop bc 0 = getTxsAt bc 0
+    loop bc i = (getTxsAt bc i) ++ (loop bc (i - 1))
+
 -- Iterating through the Blockchain to get number of blocks
-getChainLength :: Blockchain -> Integer -> IO Integer
-getChainLength (_ :< Genesis) i = return i
+getChainLength :: Blockchain -> Integer -> Integer
+getChainLength (_ :< Genesis) i = i
 getChainLength (_ :< Node _ parent) i = getChainLength parent (i+1)
 
 -- Calculates the sum of fees on blockchain txs
@@ -163,7 +173,7 @@ mineBlock acc signedTxPool parentChain = do
     txs <- filterInadequteBalanceTransaction parentChain $ filterSignedTransactions $ (\x -> take blockTXs x) <$> signedTxPool
     -- Getting Current Time:
     now <- getPOSIXTime
-    parentBlockNum <- getChainLength parentChain 0
+    let parentBlockNum = getChainLength parentChain 0
     let currentBlockNum = parentBlockNum + 1
     loop txs 0 now currentBlockNum
   else return ((Block []) :< Genesis)
@@ -188,7 +198,9 @@ mineBlock acc signedTxPool parentChain = do
           }
           let chain = ((Block $ minerRewardTx : tx) :< Node header parentChain)
           if checkValidation chain
-            then return chain
+            then do
+              saveChain chain -- SAVE CHAIN TO FILE
+              return chain
             else loop tx (nonce + 1) n currentBlockNum
 
 

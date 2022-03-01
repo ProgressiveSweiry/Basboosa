@@ -2,26 +2,120 @@
 
 module Basboosa.Network where
 
-import Network.Wai
+import Network.Wai hiding (defaultRequest, requestBody)
 import Network.HTTP.Types
+import Network.HTTP.Client
+import Network.HTTP.Simple
 import Network.Wai.Handler.Warp (run)
 
-import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.Binary as B
+import Data.ByteString.Lazy.Char8 hiding (putStrLn)
+import qualified Data.Text as T
+import Data.Text.Encoding (encodeUtf8)
 
+import qualified Data.ByteString.Char8 as BS
+
+import Basboosa.Types
 import Basboosa.Chain
 import Basboosa.Ledger
+import Basboosa.PubKey
+
+{-
+TODO:
+Send:
+- Genesis Tx - V
+- Full Blockchain - V
+- Full Txs - V
+- Full Headers - V
+Recieve Request:
+- Specific Txs, Headers
+- Add Transactions
+- Add Block (To Existing Blockchain)
+Network List:
+- Create List Of Nodes
+- Share List Of Nodes
+-}
 
 mainNetwork :: IO ()
 mainNetwork = do
-    run 8080 app
+    run 8080 nodeApp
 
 
 app :: Application
-app _ respond = do
+app request respond = do
     putStrLn "I've done some IO here"
+    let m = ("Message" :: ByteString)
+    r <- strictRequestBody request
+    if r == (B.encode ReqTxList) then do
+        bc <- loadChain
+        respond $ responseLBS status200 [("Content-Type", "text/plain")] $ B.encode $ ResTxList $ getTxFull bc
+        else
+            respond $ responseLBS status200 [("Content-Type", "text/plain")] $ pack "ERROR"
+
+nodeApp :: Application
+nodeApp request respond = do
+    r <- strictRequestBody request
+    res <- constructRespond $ B.decode r
+    respond $ responseLBS status200 [("Content-Type", "text/plain")] $ B.encode res
+
+constructRespond :: NodeRequest -> IO NodeRespond
+constructRespond req = case req of
+    ReqFullBlockchain -> do
+        fbc <- fullBlockchain
+        return (ResFullBlockchain fbc)
+    ReqNewBlock block header -> do
+        print $ show header --FILTER BLOCK AND HEADER AND ADD TO EXISTING BLOCKCHAIN
+        return (ResNewBlock)
+    ReqNewTx stx -> do 
+        return (ResNewTx) --VERIFY SIGNATURE AND ADD TO QUEUE
+    ReqTxList -> do
+        bc <- loadChain
+        return (ResTxList $ getTxFull bc)
+    
+
+sendReq :: IO ()
+sendReq = do 
+    let request = defaultRequest {
+        method = "POST",
+        host = encodeUtf8 $ T.pack "localhost",
+        port = 8080,
+        requestBody = RequestBodyLBS (B.encode ReqTxList)
+        }
+    resBs <- httpLBS request
+    print $ show (B.decode $ getResponseBody resBs :: NodeRespond)
+
+------------------------------------------------
+
+verifyTx :: SignedTxInteger -> IO ()
+verifyTx stxi = do
     bc <- loadChain
-    respond $ responseLBS status200 [("Content-Type", "text/plain")] $ BSLC.pack $ show $ buildLedgerList bc
+    stx <- convertSignedTxFromInteger stxi
+    let stxL = stx : []
+    txs <- filterSignedTransactions (return stxL)
+    print $ show txs
 
 
+-- Get -------------------------------
 
+genesisTx :: IO ByteString
+genesisTx = do
+    bc <- loadChain
+    return $ pack $ show $ getTxsAt bc $ getChainLength bc 0  
+
+fullBlockchain :: IO ByteString
+fullBlockchain = do
+    bc <- loadChain
+    return $ B.encode bc
+
+
+fullTXs :: IO ByteString
+fullTXs = do
+    bc <- loadChain
+    return $ pack $ blockchainToTxString bc
+
+
+fullHeader :: IO ByteString
+fullHeader = do
+    bc <- loadChain
+    return $ pack $ blockchainToHeaderString bc
 

@@ -9,6 +9,7 @@ import qualified Crypto.ECC as ECC
 import qualified Crypto.PubKey.ECDSA as ECDSA
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Lazy.Char8 as CL
 import Data.Binary
 import Data.Time
 
@@ -43,7 +44,7 @@ data Transaction = Transaction {
 } deriving (Eq, Show, Generic)
 
 -- Block data type holding list of Transactions
-data Block = Block { _txs :: [Transaction]} deriving (Show, Generic)
+data Block = Block { _txs :: [Transaction]} deriving (Eq, Show, Generic)
 
 -- BlockHeader data type
 data BlockHeader = BlockHeader {
@@ -64,13 +65,28 @@ type Blockchain = Cofree ChainT Block
 type Account_Balance = (Account, Integer)
 newtype LedgerList = LedgerList [Account_Balance] deriving (Eq, Show, Generic)
 
+data NodeRequest = ReqFullBlockchain
+                |  ReqNewBlock Block BlockHeader
+                |  ReqNewTx SignedTxInteger
+                |  ReqTxList
+                deriving (Eq, Show, Generic) 
+
+data NodeRespond = ResFullBlockchain CL.ByteString    --Blockchain
+                |  ResNewBlock
+                |  ResNewTx
+                |  ResTxList [Transaction]
+                deriving (Eq, Show, Generic) 
+
+
+instance Binary NodeRequest 
+instance Binary NodeRespond
 
 instance Binary LedgerList 
 instance Binary Address
 instance Binary Account
 instance Binary Transaction
 instance Binary Block
-instance Binary Hash
+instance Binary Hash 
 instance (Binary (f (Cofree f a)), Binary a) => Binary (Cofree f a) 
 instance (Binary a) => Binary (ChainT a) where
 instance Binary BlockHeader where
@@ -88,7 +104,7 @@ deriving instance Generic (ChainT a)
 
 -- Global Number Of Txs Per Block
 blockTXs :: Int
-blockTXs = 10000
+blockTXs = 100
 
 -- Global Amount Of Reward To Miner
 minerReward :: Integer
