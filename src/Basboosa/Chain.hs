@@ -118,6 +118,23 @@ getChainFees (block :< Node _ parent) i = getChainFees parent ((blockFees block)
     loop a [] = a
     loop a (x:xs) = loop (a + (_fee x)) xs
 
+-- Merge / Extract ---------------------------------------------------
+
+mergeNewBlock :: Block -> BlockHeader -> Blockchain -> IO Blockchain
+mergeNewBlock block header bc = do
+  txs <- filterInadequteBalanceTransaction bc (return $ _txs block)
+  let tmpBlock = Block txs == block
+      isHashCorrent = (_parentHash header ) == (hashBlockchain bc)
+      isBlockNumberCorrect = (\(block :< Node chainHeader parent) h -> (_blockNumber chainHeader + 1) == _blockNumber h) bc header
+  if tmpBlock && isHashCorrent && isBlockNumberCorrect 
+    then do
+      let newChain = (block :< Node header bc)
+      return newChain
+    else 
+      return bc
+
+extractNewBlock :: Blockchain -> (Block, BlockHeader)
+extractNewBlock (block :< Node header _) = (block, header)
 
 -- Filters -------------------------------------------------------------
 
@@ -154,10 +171,10 @@ filterInadequteBalanceTransaction chain tx = do
 
 checkReward :: Blockchain -> Bool
 checkReward (_ :< Genesis) = True
-checkReward (block :< Node header parent) = (isMinerInHeader (_txs block) header) && checkReward parent
+checkReward (block :< Node header parent) = (isMinerInHeader (_txs block) header) 
   where
     isMinerInHeader [] _ = True
-    isMinerInHeader (x:xs) h = if (_from x) == (Account "REWARD") then ( _to x) == (_miner h) && isMinerInHeader xs h else True && isMinerInHeader xs h
+    isMinerInHeader (x:xs) h = if (_from x) == (Account "REWARD") then ( _to x) == (_miner h) && (_amount x) == minerReward && isMinerInHeader xs h else True && isMinerInHeader xs h
 
 checkBlockchainHash :: Blockchain -> Bool
 checkBlockchainHash (_ :< Genesis) = True
@@ -181,7 +198,7 @@ mineBlock acc signedTxPool parentChain = do
         --Difficulty Check:
         checkValidation c = (Prelude.take 1 $ hashToString $ CL.unpack $ B.encode c) == "0"
         --Hash of parent blockchain:
-        parentHash = Hash $ hashToString $ CL.unpack $ B.encode parentChain
+        parentHash = hashBlockchain parentChain
         --Generates Miner Address For Miner Account
         minerAddress = convertAccountToMinerAddress acc
         --Reward Tx:

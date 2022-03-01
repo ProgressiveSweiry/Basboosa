@@ -75,6 +75,7 @@ data NodeRespond = ResFullBlockchain CL.ByteString    --Blockchain
                 |  ResNewBlock
                 |  ResNewTx
                 |  ResTxList [Transaction]
+                |  ResError
                 deriving (Eq, Show, Generic) 
 
 

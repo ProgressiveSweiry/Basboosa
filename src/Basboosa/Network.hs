@@ -40,7 +40,7 @@ mainNetwork :: IO ()
 mainNetwork = do
     run 8080 nodeApp
 
-
+{-
 app :: Application
 app request respond = do
     putStrLn "I've done some IO here"
@@ -51,6 +51,8 @@ app request respond = do
         respond $ responseLBS status200 [("Content-Type", "text/plain")] $ B.encode $ ResTxList $ getTxFull bc
         else
             respond $ responseLBS status200 [("Content-Type", "text/plain")] $ pack "ERROR"
+-}
+
 
 nodeApp :: Application
 nodeApp request respond = do
@@ -64,9 +66,15 @@ constructRespond req = case req of
         fbc <- fullBlockchain
         return (ResFullBlockchain fbc)
     ReqNewBlock block header -> do
-        print $ show header --FILTER BLOCK AND HEADER AND ADD TO EXISTING BLOCKCHAIN
-        return (ResNewBlock)
+        bc <- loadChain
+        newBC <- mergeNewBlock block header bc
+        if (hashBlockchain bc) == (hashBlockchain newBC) -- TODO : CHECK IT!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            then
+                return (ResError)
+            else
+                return (ResNewBlock)
     ReqNewTx stx -> do 
+        verifyStx stx
         return (ResNewTx) --VERIFY SIGNATURE AND ADD TO QUEUE
     ReqTxList -> do
         bc <- loadChain
@@ -75,19 +83,20 @@ constructRespond req = case req of
 
 sendReq :: IO ()
 sendReq = do 
+    tx <- loadSignedTx
     let request = defaultRequest {
         method = "POST",
         host = encodeUtf8 $ T.pack "localhost",
         port = 8080,
-        requestBody = RequestBodyLBS (B.encode ReqTxList)
+        requestBody = RequestBodyLBS (B.encode $ ReqNewTx $ convertSignedTxToInteger tx)
         }
     resBs <- httpLBS request
     print $ show (B.decode $ getResponseBody resBs :: NodeRespond)
 
 ------------------------------------------------
 
-verifyTx :: SignedTxInteger -> IO ()
-verifyTx stxi = do
+verifyStx :: SignedTxInteger -> IO ()
+verifyStx stxi = do
     bc <- loadChain
     stx <- convertSignedTxFromInteger stxi
     let stxL = stx : []
