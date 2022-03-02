@@ -60,6 +60,16 @@
   (major1) == 0 && (major2) <  29 || \
   (major1) == 0 && (major2) == 29 && (minor) <= 0)
 #endif /* MIN_VERSION_cryptonite */
+/* package deepseq-1.4.4.0 */
+#ifndef VERSION_deepseq
+#define VERSION_deepseq "1.4.4.0"
+#endif /* VERSION_deepseq */
+#ifndef MIN_VERSION_deepseq
+#define MIN_VERSION_deepseq(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  4 || \
+  (major1) == 1 && (major2) == 4 && (minor) <= 4)
+#endif /* MIN_VERSION_deepseq */
 /* package directory-1.3.6.0 */
 #ifndef VERSION_directory
 #define VERSION_directory "1.3.6.0"

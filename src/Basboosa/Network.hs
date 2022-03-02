@@ -22,6 +22,8 @@ import Basboosa.PubKey
 
 {-
 TODO:
+Fix File Reading - V
+Fix Duplicate Txs - Create List Of Tx ID TO Check Duplicates
 Send:
 - Genesis Tx - V
 - Full Blockchain - V
@@ -80,6 +82,19 @@ constructRespond req = case req of
         bc <- loadChain
         return (ResTxList $ getTxFull bc)
     
+-- Send Requests -------------------------------
+
+sendBlockchainReq :: IO Blockchain
+sendBlockchainReq = do
+    let request = defaultRequest {
+        method = "POST",
+        host = encodeUtf8 $ T.pack "localhost",
+        port = 8080,
+        requestBody = RequestBodyLBS (B.encode $ ReqFullBlockchain)
+        }
+    resBs <- httpLBS request
+    return $ (\(ResFullBlockchain bs) -> (B.decode bs :: Blockchain)) $ (B.decode $ getResponseBody resBs :: NodeRespond)
+
 
 sendReq :: IO ()
 sendReq = do 

@@ -7,6 +7,7 @@ import Basboosa.Types
 import Basboosa.PubKey
 
 import System.IO
+import Control.DeepSeq
 
 import Control.Comonad.Cofree
 import Crypto.Hash 
@@ -45,32 +46,49 @@ injectTransactionFee tx = Transaction { _from = (_from tx), _to = (_to tx), _amo
 injectTransactionId :: Transaction -> IO Transaction
 injectTransactionId tx = do
   rs <- generateRandomSeed
-  return $ Transaction { _from = (_from tx), _to = (_to tx), _amount = (_amount tx), _text = (_text tx), _fee = (calculateTransactionFee tx), _id = Hash $ take 10 rs}
+  return $ Transaction { _from = (_from tx), _to = (_to tx), _amount = (_amount tx), _text = (_text tx), _fee = (calculateTransactionFee tx), _id = Hash $ hashToString $ take 10 rs}
 
--- Storage --------------------------------------------------
+-- Ledger Utility -------------------------------------------
 
 convertSignedTxToInteger :: SignedTx -> SignedTxInteger
-convertSignedTxToInteger (tx, sign) = (tx, signatureToIntegers proxy sign)
+convertSignedTxToInteger (tx, sign) = if (_from tx /= (Account "REWARD")) then (tx, signatureToIntegers proxy sign) else (tx , (0,0))
+
+convertSignedTxToIntegerList :: [SignedTx] -> [SignedTxInteger]
+convertSignedTxToIntegerList = map convertSignedTxToInteger 
 
 convertSignedTxFromInteger :: SignedTxInteger -> IO SignedTx 
 convertSignedTxFromInteger (tx, signInteger) = do
   sign <- ERR.throwCryptoErrorIO $ signatureFromIntegers proxy signInteger
   return (tx,sign)
 
+convertSignedTxFromIntegerList :: [SignedTxInteger] -> IO [SignedTx]
+convertSignedTxFromIntegerList [] = return []
+convertSignedTxFromIntegerList (x : xs) = do
+  nX <- convertSignedTxFromInteger x
+  nXS <- convertSignedTxFromIntegerList xs
+  return $ nX : nXS
+
+
+-- Storage --------------------------------------------------
 saveSignedTx :: SignedTx -> IO ()
-saveSignedTx sTx = writeFile txFile $ CL.unpack $ B.encode $ convertSignedTxToInteger sTx
+saveSignedTx sTx = do
+  handle <- openFile txFile WriteMode
+  hPutStr handle $ CL.unpack $ B.encode $ convertSignedTxToInteger sTx
+  hClose handle
 
 loadSignedTx :: IO SignedTx 
 loadSignedTx = do
-  sTxI <- readFile txFile
-  convertSignedTxFromInteger $ B.decode $ CL.pack sTxI
+  handle <- openFile txFile ReadMode
+  sTxI <- hGetContents handle
+  sTxI `deepseq` hClose handle 
+  (convertSignedTxFromInteger $ B.decode $ CL.pack sTxI)
+  
 
--- Ledger Utility -------------------------------------------
 
 -- Creatring LedgerList of balances from existing Blockchain
 buildLedgerList :: Blockchain -> LedgerList
-buildLedgerList (block :< Genesis) = LedgerList $ buildMultiAccountBalance $ _txs block
-buildLedgerList (block :< Node _ parent) =  combineLedgerList (LedgerList $ buildMultiAccountBalance $ _txs block) (buildLedgerList parent)
+buildLedgerList (block :< Genesis) = LedgerList $ buildMultiAccountBalance $ fstList $ _txs  block
+buildLedgerList (block :< Node _ parent) =  combineLedgerList (LedgerList $ buildMultiAccountBalance $ fstList $ _txs block) (buildLedgerList parent)
   where
     combineLedgerList = (\(LedgerList a) (LedgerList b) -> (LedgerList $ mergeLedgerList a b))
 
@@ -115,4 +133,5 @@ accountBalance led = loop $ (\(LedgerList l) -> l) led
   where
     loop [] = 0
     loop ((_, b) : xs) = b + (loop xs)
+
 

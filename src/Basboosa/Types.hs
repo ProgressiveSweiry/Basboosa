@@ -8,9 +8,11 @@ import Control.Comonad.Cofree
 import qualified Crypto.ECC as ECC
 import qualified Crypto.PubKey.ECDSA as ECDSA
 
+import Crypto.Hash
+
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as CL
-import Data.Binary
+import Data.Binary as B
 import Data.Time
 
 import Data.Time.Clock.POSIX
@@ -32,6 +34,7 @@ type SignedTx = (Transaction, Signature)
 type SignedTxInteger = (Transaction, SignatureInteger)
 type SignedTransactionPool = IO [SignedTx] 
 
+type TxHashList = [Hash]
 
 -- Transaction Data
 data Transaction = Transaction {
@@ -44,7 +47,7 @@ data Transaction = Transaction {
 } deriving (Eq, Show, Generic)
 
 -- Block data type holding list of Transactions
-data Block = Block { _txs :: [Transaction]} deriving (Eq, Show, Generic)
+data Block = Block { _txs :: [SignedTxInteger]} deriving (Eq, Show, Generic)
 
 -- BlockHeader data type
 data BlockHeader = BlockHeader {
@@ -99,6 +102,11 @@ instance Binary POSIXTime where
 deriving instance Generic BlockHeader
 deriving instance Generic (ChainT a)
 
+-- Helper Functions ------------------------------
+
+fstList :: [(a,b)] -> [a]
+fstList lst = foldr (\x acc -> (fst x):acc) [] lst
+
 
 -- Global Constants ---------------------------
 
@@ -121,6 +129,17 @@ chainFile :: FilePath
 chainFile = "Blockchain.chain"
 
 
+-- Hashing -------------------------------------------------------------------
+
+-- Chaining
+hashToString :: String -> String
+hashToString = byteToStringH . C.pack
+
+byteToStringH :: C.ByteString -> String
+byteToStringH bs = show (hash bs :: Digest SHA256)
+
+hashBlockchain :: Blockchain -> Hash
+hashBlockchain = Hash . hashToString . CL.unpack . B.encode
 
 
 

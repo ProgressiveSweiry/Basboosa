@@ -6,6 +6,9 @@ import Basboosa.Types
 import Basboosa.PubKey
 import Basboosa.Ledger 
 
+import System.IO
+import Control.DeepSeq
+
 import Control.Comonad.Cofree
 
 import Crypto.Hash
@@ -44,7 +47,7 @@ makeGenesis = do
 
 makeGenesisFund :: Address -> IO Blockchain
 makeGenesisFund addr = do
-  return (Block [addrFund] :< Genesis)
+  return (Block [(addrFund, (0,0))] :< Genesis)
     where
       addrFund = Transaction {
         _from   = Account "A_Genesis",
@@ -58,24 +61,18 @@ makeGenesisFund addr = do
 -- Storage -----------------------------------------------------------------
 
 saveChain :: Blockchain -> IO ()
-saveChain = writeFile chainFile . CL.unpack . B.encode 
+saveChain bc = do
+  handle <- openFile chainFile WriteMode
+  hPutStr handle $ CL.unpack $ B.encode bc
+  hClose handle
+  
 
 loadChain :: IO Blockchain
 loadChain = do
-  bc <- readFile chainFile
+  handle <- openFile chainFile ReadMode
+  bc <- hGetContents handle
+  bc `deepseq` hClose handle 
   return $ B.decode $ CL.pack bc
-
--- Hashing -------------------------------------------------------------------
-
--- Chaining
-hashToString :: String -> String
-hashToString = byteToStringH . C.pack
-
-byteToStringH :: C.ByteString -> String
-byteToStringH bs = show (hash bs :: Digest SHA256)
-
-hashBlockchain :: Blockchain -> Hash
-hashBlockchain = Hash . hashToString . CL.unpack . B.encode
 
 -- Blockchain Getters ---------------------------------------------------------
 
@@ -94,8 +91,8 @@ getHeaderAt (_ :< Node _ parent) n = getHeaderAt parent $ (n-1)
 
 -- Like getHeaderAt For Transactions
 getTxsAt :: Blockchain -> Integer -> [Transaction]
-getTxsAt (block :< Genesis) _ = _txs block
-getTxsAt (block :< _) 0 = _txs block
+getTxsAt (block :< Genesis) _ = fstList $ _txs block
+getTxsAt (block :< _) 0 = fstList $ _txs block
 getTxsAt (_ :< Node _ parent) i = getTxsAt parent $ (i - 1)
 
 getTxFull :: Blockchain -> [Transaction]
@@ -114,7 +111,7 @@ getChainFees :: Blockchain -> Integer -> Integer
 getChainFees (_ :< Genesis) i = i
 getChainFees (block :< Node _ parent) i = getChainFees parent ((blockFees block) + i)
   where
-    blockFees b = loop 0 $ _txs b
+    blockFees b = loop 0 $ fstList $ _txs b
     loop a [] = a
     loop a (x:xs) = loop (a + (_fee x)) xs
 
@@ -122,11 +119,12 @@ getChainFees (block :< Node _ parent) i = getChainFees parent ((blockFees block)
 
 mergeNewBlock :: Block -> BlockHeader -> Blockchain -> IO Blockchain
 mergeNewBlock block header bc = do
-  txs <- filterInadequteBalanceTransaction bc (return $ _txs block)
-  let tmpBlock = Block txs == block
+  txs <- filterDuplicates bc $ filterInadequteBalanceTransaction bc $ filterSignedTransactions $ convertSignedTxFromIntegerList $ _txs block
+  tmpTxs <- (convertSignedTxFromIntegerList $ _txs block)
+  let verifyTxs = txs == tmpTxs
       isHashCorrent = (_parentHash header ) == (hashBlockchain bc)
       isBlockNumberCorrect = (\(block :< Node chainHeader parent) h -> (_blockNumber chainHeader + 1) == _blockNumber h) bc header
-  if tmpBlock && isHashCorrent && isBlockNumberCorrect 
+  if verifyTxs && isHashCorrent && isBlockNumberCorrect 
     then do
       let newChain = (block :< Node header bc)
       return newChain
@@ -138,7 +136,19 @@ extractNewBlock (block :< Node header _) = (block, header)
 
 -- Filters -------------------------------------------------------------
 
-filterSignedTransactions :: SignedTransactionPool -> TransactionPool
+filterDuplicates :: Blockchain -> SignedTransactionPool -> SignedTransactionPool
+filterDuplicates bc sTx = do
+  s <- sTx
+  let hashList = buildTxList bc
+  return $ loopCheck s $ removeDuplicate hashList
+    where
+      removeDuplicate [] = []
+      removeDuplicate (x : xs) = if x `elem` xs then removeDuplicate xs else x : (removeDuplicate xs)
+
+      loopCheck [] _ = []
+      loopCheck (x : xs) l = if (_id $ fst x) `elem` l then loopCheck xs l else x : (loopCheck xs l)
+
+filterSignedTransactions :: SignedTransactionPool -> SignedTransactionPool
 filterSignedTransactions signedTxPool = do
   s <- signedTxPool
   loopCheck s
@@ -147,31 +157,35 @@ filterSignedTransactions signedTxPool = do
       loopCheck (x:xs) = do
         v <- verify x
         ls <- loopCheck xs
-        if v then return $ fst x : ls else return ls
+        if v then return $ x : ls else return ls
 
       verify x = do
-        p <- (pub $ fst x)
-        return $ verifyTx p (fst x) (snd x)
+        if ((_from $ fst x) == (Account "REWARD"))
+          then do
+            return True
+          else do
+            p <- (pub $ fst x)
+            return $ verifyTx p (fst x) (snd x)
 
       pub = convertTransactionToPublicKey
 
 
 -- Check Every Account For Adequate Balance In Transaction
-filterInadequteBalanceTransaction :: Blockchain -> TransactionPool -> TransactionPool
+filterInadequteBalanceTransaction :: Blockchain -> SignedTransactionPool -> SignedTransactionPool
 filterInadequteBalanceTransaction chain tx = do
   txList <- tx
   let ledgerList = buildLedgerList chain
   return $ loopTxs ledgerList txList
     where
       loopTxs _ [] = []
-      loopTxs l (x : xs) = if verifyBalance l x then x : (loopTxs l xs) else loopTxs l xs
+      loopTxs l (x : xs) = if verifyBalance l (fst x) then x : (loopTxs l xs) else loopTxs l xs
 
       verifyBalance l x = if (_from x == (Account "REWARD")) then True else (accountBalance $ filterLedgerToAccount (_from x) l) >= ((_amount x ) + (_fee x)) && (_amount x > 0 ) && (_to x) /= (Address "")
 
 
 checkReward :: Blockchain -> Bool
 checkReward (_ :< Genesis) = True
-checkReward (block :< Node header parent) = (isMinerInHeader (_txs block) header) 
+checkReward (block :< Node header parent) = (isMinerInHeader (fstList $ _txs block) header) 
   where
     isMinerInHeader [] _ = True
     isMinerInHeader (x:xs) h = if (_from x) == (Account "REWARD") then ( _to x) == (_miner h) && (_amount x) == minerReward && isMinerInHeader xs h else True && isMinerInHeader xs h
@@ -187,12 +201,13 @@ mineBlock :: Account -> SignedTransactionPool -> Blockchain -> IO Blockchain
 mineBlock acc signedTxPool parentChain = do
   -- Filtering TransactionPool and parent Blockchain
   if checkReward parentChain && checkBlockchainHash parentChain then do
-    txs <- filterInadequteBalanceTransaction parentChain $ filterSignedTransactions $ (\x -> take blockTXs x) <$> signedTxPool
+    txs <- filterDuplicates parentChain $ filterInadequteBalanceTransaction parentChain $ filterSignedTransactions $ (\x -> take blockTXs x) <$> signedTxPool
+    let txsInteger = convertSignedTxToIntegerList txs
     -- Getting Current Time:
     now <- getPOSIXTime
     let parentBlockNum = getChainLength parentChain 0
     let currentBlockNum = parentBlockNum + 1
-    loop txs 0 now currentBlockNum
+    loop txsInteger 0 now currentBlockNum
   else return ((Block []) :< Genesis)
         where
         --Difficulty Check:
@@ -202,7 +217,7 @@ mineBlock acc signedTxPool parentChain = do
         --Generates Miner Address For Miner Account
         minerAddress = convertAccountToMinerAddress acc
         --Reward Tx:
-        minerRewardTx = Transaction {_from = Account "REWARD" , _to = minerAddress , _amount = minerReward, _text = "REWARD", _fee = 0, _id = Hash "0000" }
+        minerRewardTx = Transaction {_from = Account "REWARD" , _to = minerAddress , _amount = minerReward, _text = "REWARD", _fee = 0, _id = parentHash }
         --Mining Loop:
         loop tx nonce n currentBlockNum = do
           -- Constructing BlockHeader:
@@ -213,14 +228,21 @@ mineBlock acc signedTxPool parentChain = do
             _minedAt = n,
             _blockNumber = currentBlockNum
           }
-          let chain = ((Block $ minerRewardTx : tx) :< Node header parentChain)
+          let chain = ((Block $ (minerRewardTx, (0,0)) : tx) :< Node header parentChain)
           if checkValidation chain
             then do
-              saveChain chain -- SAVE CHAIN TO FILE
+              --saveChain chain -- SAVE CHAIN TO FILE
               return chain
             else loop tx (nonce + 1) n currentBlockNum
 
+-- Transactions List ------------------------------------------
 
+buildTxList :: Blockchain -> TxHashList
+buildTxList (_ :< Genesis) = []
+buildTxList (block :< Node _ parent) = (hashList $ fstList $ _txs block) ++ (buildTxList parent)
+  where
+    hashList [] = []
+    hashList (x : xs) = _id x : (hashList xs)
 
 
 

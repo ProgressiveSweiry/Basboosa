@@ -7,6 +7,8 @@ import Basboosa.Types
 import System.IO
 import System.Directory
 
+import Control.DeepSeq
+
 import qualified Crypto.PubKey.ECDSA as ECDSA
 import qualified Crypto.Error as ERR
 import Crypto.ECC
@@ -132,12 +134,16 @@ decryptWithKey key msg = filterSpace $ C.unpack $ decryptECB (initAES $ C.pack $
 -- Storage ----------------------------------------------------------
 
 savePrivateKey :: PrivateKey -> String -> IO ()
-savePrivateKey prv key = 
-    writeFile privateFile $ encryptWithKey key $ show $ scalarToInteger proxy prv
+savePrivateKey prv key = do
+    handle <- openFile privateFile WriteMode
+    hPutStr handle $ encryptWithKey key $ show $ scalarToInteger proxy prv
+    hClose handle
 
 loadPrivateKey :: String -> IO PrivateKey
 loadPrivateKey key = do
-    f <- readFile privateFile
+    handle <- openFile privateFile ReadMode
+    f <- hGetContents handle
+    f `deepseq` hClose handle
     ERR.throwCryptoErrorIO $ scalarFromInteger proxy (read $ decryptWithKey key f :: Integer)
 
 -- Login / Logout -----------------------------------------------------------
