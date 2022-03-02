@@ -70,14 +70,15 @@ constructRespond req = case req of
     ReqNewBlock block header -> do
         bc <- loadChain
         newBC <- mergeNewBlock block header bc
-        if (hashBlockchain bc) == (hashBlockchain newBC) -- TODO : CHECK IT!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            then
+        if (hashBlockchain bc) == (hashBlockchain newBC)
+            then 
                 return (ResError)
-            else
+            else do
+                saveChain newBC
                 return (ResNewBlock)
     ReqNewTx stx -> do 
         verifyStx stx
-        return (ResNewTx) --VERIFY SIGNATURE AND ADD TO QUEUE
+        return (ResNewTx) -- TODO: VERIFY SIGNATURE AND ADD TO QUEUE 
     ReqTxList -> do
         bc <- loadChain
         return (ResTxList $ getTxFull bc)
@@ -94,6 +95,29 @@ sendBlockchainReq = do
         }
     resBs <- httpLBS request
     return $ (\(ResFullBlockchain bs) -> (B.decode bs :: Blockchain)) $ (B.decode $ getResponseBody resBs :: NodeRespond)
+
+sendNewBlockReq :: Block -> BlockHeader -> IO NodeRespond
+sendNewBlockReq block header = do
+    let request = defaultRequest {
+        method = "POST",
+        host = encodeUtf8 $ T.pack "localhost",
+        port = 8080,
+        requestBody = RequestBodyLBS (B.encode $ ReqNewBlock block header)
+        }
+    resBs <- httpLBS request
+    return $ (B.decode $ getResponseBody resBs :: NodeRespond)
+
+sendTxListReq :: TransactionPool
+sendTxListReq = do
+    let request = defaultRequest {
+        method = "POST",
+        host = encodeUtf8 $ T.pack "localhost",
+        port = 8080,
+        requestBody = RequestBodyLBS (B.encode $ ReqTxList)
+        }
+    resBs <- httpLBS request
+    return $ (\(ResTxList txs) -> txs) $ (B.decode $ getResponseBody resBs :: NodeRespond)
+
 
 
 sendReq :: IO ()
