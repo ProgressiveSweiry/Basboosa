@@ -31,7 +31,6 @@ import Data.ByteArray.Encoding
 import Data.List.Split
 
 import qualified Data.Mnemonic.Electrum as M
-import Basboosa.Types (Transaction (_from), PublicKey, Account, Address (Address))
 
 
 -- Proxy Of Curve ----------------------------------
@@ -145,6 +144,20 @@ loadPrivateKey key = do
     f <- hGetContents handle
     f `deepseq` hClose handle
     ERR.throwCryptoErrorIO $ scalarFromInteger proxy (read $ decryptWithKey key f :: Integer)
+
+saveAccount :: PrivateKey -> IO ()
+saveAccount priv = do
+    handle <- openFile accountFile WriteMode
+    hPutStr handle $ (\(Account x ) -> x) $ convertPublicKeyToAccount $ convertToPublicKey priv
+    hClose handle
+
+loadAccount :: IO Account
+loadAccount = do
+    handle <- openFile accountFile ReadMode
+    f <- hGetContents handle
+    f `deepseq` hClose handle
+    return $ Account f
+    
 
 -- Login / Logout -----------------------------------------------------------
 

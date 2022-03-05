@@ -122,6 +122,9 @@ minerReward = 100
 privateFile :: FilePath
 privateFile = "privatekey.prv"
 
+accountFile :: FilePath 
+accountFile = "address.addr"
+
 txFile :: FilePath
 txFile = "SignedTransaction.tx"
 

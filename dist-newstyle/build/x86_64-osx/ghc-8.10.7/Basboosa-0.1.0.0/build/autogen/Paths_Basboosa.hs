@@ -42,12 +42,12 @@ getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: 
 
 
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
-bindir     = "/home/papa/.cabal/bin"
-libdir     = "/home/papa/.cabal/lib/x86_64-linux-ghc-8.10.7/Basboosa-0.1.0.0-inplace"
-dynlibdir  = "/home/papa/.cabal/lib/x86_64-linux-ghc-8.10.7"
-datadir    = "/home/papa/.cabal/share/x86_64-linux-ghc-8.10.7/Basboosa-0.1.0.0"
-libexecdir = "/home/papa/.cabal/libexec/x86_64-linux-ghc-8.10.7/Basboosa-0.1.0.0"
-sysconfdir = "/home/papa/.cabal/etc"
+bindir     = "/Users/amitsweriy/.cabal/bin"
+libdir     = "/Users/amitsweriy/.cabal/lib/x86_64-osx-ghc-8.10.7/Basboosa-0.1.0.0-inplace"
+dynlibdir  = "/Users/amitsweriy/.cabal/lib/x86_64-osx-ghc-8.10.7"
+datadir    = "/Users/amitsweriy/.cabal/share/x86_64-osx-ghc-8.10.7/Basboosa-0.1.0.0"
+libexecdir = "/Users/amitsweriy/.cabal/libexec/x86_64-osx-ghc-8.10.7/Basboosa-0.1.0.0"
+sysconfdir = "/Users/amitsweriy/.cabal/etc"
 
 getBinDir     = catchIO (getEnv "Basboosa_bindir")     (\_ -> return bindir)
 getLibDir     = catchIO (getEnv "Basboosa_libdir")     (\_ -> return libdir)

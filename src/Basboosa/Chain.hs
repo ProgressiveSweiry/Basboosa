@@ -27,8 +27,10 @@ import qualified Data.ByteString as BS
 printBlockchainTxs :: Blockchain -> IO ()
 printBlockchainTxs (block :< Genesis) = do
   print $ _txs block
+  putStrLn "BLOCK #0" 
 printBlockchainTxs (block :< Node header parent) = do
   print $ _txs block
+  putStrLn $ "BLOCK #" ++ (show $ _blockNumber header)
   printBlockchainTxs parent
 
 blockchainToTxString :: Blockchain -> String
@@ -231,7 +233,7 @@ mineBlock acc signedTxPool parentChain = do
           let chain = ((Block $ (minerRewardTx, (0,0)) : tx) :< Node header parentChain)
           if checkValidation chain
             then do
-              --saveChain chain -- SAVE CHAIN TO FILE
+              saveChain chain -- SAVE CHAIN TO FILE
               return chain
             else loop tx (nonce + 1) n currentBlockNum
 

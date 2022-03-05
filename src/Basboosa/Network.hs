@@ -15,6 +15,8 @@ import Data.Text.Encoding (encodeUtf8)
 
 import qualified Data.ByteString.Char8 as BS
 
+import Control.Comonad.Cofree
+
 import Basboosa.Types
 import Basboosa.Chain
 import Basboosa.Ledger
@@ -23,7 +25,7 @@ import Basboosa.PubKey
 {-
 TODO:
 Fix File Reading - V
-Fix Duplicate Txs - Create List Of Tx ID TO Check Duplicates
+Fix Duplicate Txs - Create List Of Tx ID TO Check Duplicates - V
 Send:
 - Genesis Tx - V
 - Full Blockchain - V
@@ -38,22 +40,19 @@ Network List:
 - Share List Of Nodes
 -}
 
+-- Constants -------------------------
+
+nPort :: Int
+nPort = 8080
+
+nHost :: String
+nHost = "localhost"
+
+-- Network ---------------------------
+
 mainNetwork :: IO ()
 mainNetwork = do
     run 8080 nodeApp
-
-{-
-app :: Application
-app request respond = do
-    putStrLn "I've done some IO here"
-    let m = ("Message" :: ByteString)
-    r <- strictRequestBody request
-    if r == (B.encode ReqTxList) then do
-        bc <- loadChain
-        respond $ responseLBS status200 [("Content-Type", "text/plain")] $ B.encode $ ResTxList $ getTxFull bc
-        else
-            respond $ responseLBS status200 [("Content-Type", "text/plain")] $ pack "ERROR"
--}
 
 
 nodeApp :: Application
@@ -77,8 +76,8 @@ constructRespond req = case req of
                 saveChain newBC
                 return (ResNewBlock)
     ReqNewTx stx -> do 
-        verifyStx stx
-        return (ResNewTx) -- TODO: VERIFY SIGNATURE AND ADD TO QUEUE 
+        b <- verifyStx stx
+        if b then return ResNewTx else return ResError -- TODO: Create Txs Queue
     ReqTxList -> do
         bc <- loadChain
         return (ResTxList $ getTxFull bc)
@@ -89,8 +88,8 @@ sendBlockchainReq :: IO Blockchain
 sendBlockchainReq = do
     let request = defaultRequest {
         method = "POST",
-        host = encodeUtf8 $ T.pack "localhost",
-        port = 8080,
+        host = encodeUtf8 $ T.pack nHost,
+        port = nPort,
         requestBody = RequestBodyLBS (B.encode $ ReqFullBlockchain)
         }
     resBs <- httpLBS request
@@ -100,8 +99,8 @@ sendNewBlockReq :: Block -> BlockHeader -> IO NodeRespond
 sendNewBlockReq block header = do
     let request = defaultRequest {
         method = "POST",
-        host = encodeUtf8 $ T.pack "localhost",
-        port = 8080,
+        host = encodeUtf8 $ T.pack nHost,
+        port = nPort,
         requestBody = RequestBodyLBS (B.encode $ ReqNewBlock block header)
         }
     resBs <- httpLBS request
@@ -111,36 +110,36 @@ sendTxListReq :: TransactionPool
 sendTxListReq = do
     let request = defaultRequest {
         method = "POST",
-        host = encodeUtf8 $ T.pack "localhost",
-        port = 8080,
+        host = encodeUtf8 $ T.pack nHost,
+        port = nPort,
         requestBody = RequestBodyLBS (B.encode $ ReqTxList)
         }
     resBs <- httpLBS request
     return $ (\(ResTxList txs) -> txs) $ (B.decode $ getResponseBody resBs :: NodeRespond)
 
 
-
-sendReq :: IO ()
-sendReq = do 
-    tx <- loadSignedTx
+sendNewTxReq :: SignedTx -> IO ()
+sendNewTxReq sTx = do 
     let request = defaultRequest {
         method = "POST",
-        host = encodeUtf8 $ T.pack "localhost",
-        port = 8080,
-        requestBody = RequestBodyLBS (B.encode $ ReqNewTx $ convertSignedTxToInteger tx)
+        host = encodeUtf8 $ T.pack nHost,
+        port = nPort,
+        requestBody = RequestBodyLBS (B.encode $ ReqNewTx $ convertSignedTxToInteger sTx)
         }
     resBs <- httpLBS request
     print $ show (B.decode $ getResponseBody resBs :: NodeRespond)
 
 ------------------------------------------------
 
-verifyStx :: SignedTxInteger -> IO ()
+verifyStx :: SignedTxInteger -> IO Bool
 verifyStx stxi = do
     bc <- loadChain
     stx <- convertSignedTxFromInteger stxi
+    acc <- loadAccount
     let stxL = stx : []
-    txs <- filterSignedTransactions (return stxL)
-    print $ show txs
+    chain <- mineBlock acc (return stxL) bc
+    printBlockchainTxs chain
+    return $ not $ (hashBlockchain chain) == (hashBlockchain $ ((Block []) :< Genesis)) 
 
 
 -- Get -------------------------------
