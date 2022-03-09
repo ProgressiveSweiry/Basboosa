@@ -46,7 +46,7 @@ nPort :: Int
 nPort = 8080
 
 nHost :: String
-nHost = "localhost"
+nHost = "192.168.1.106"
 
 -- Network ---------------------------
 
@@ -89,6 +89,7 @@ constructRespond req = case req of
         return ResNewTxQueue
     ReqTxQueueList -> do
         q <- loadToQueue
+        saveToQueue []
         return $ ResTxQueueList q
     
 
