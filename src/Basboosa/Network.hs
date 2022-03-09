@@ -50,10 +50,10 @@ nHost = "localhost"
 
 -- Network ---------------------------
 
+
 mainNetwork :: IO ()
 mainNetwork = do
     run 8080 nodeApp
-
 
 nodeApp :: Application
 nodeApp request respond = do
@@ -73,15 +73,39 @@ constructRespond req = case req of
             then 
                 return (ResError)
             else do
-                saveChain newBC
+                saveChain newBC -- SAVE NEW BLOCKCHAIN
                 return (ResNewBlock)
-    ReqNewTx stx -> do 
+    ReqNewTx stx -> do -- DISCARDED - USE ReqNewTxQueue
         b <- verifyStx stx
-        if b then return ResNewTx else return ResError -- TODO: Create Txs Queue
+        if b then return ResNewTx else return ResError 
     ReqTxList -> do
         bc <- loadChain
         return (ResTxList $ getTxFull bc)
+    ReqNewTxQueue sTx -> do
+        let tmp = convertSignedTxFromIntegerList $ Prelude.take 100 sTx
+        tmpTxs <- tmp
+        appendToQueue $ convertSignedTxToIntegerList tmpTxs
+        --bc <- mineFromQueue -- TODO : Seperate From Network
+        return ResNewTxQueue
+    ReqTxQueueList -> do
+        q <- loadToQueue
+        return $ ResTxQueueList q
     
+
+mineServer :: Account -> IO ()
+mineServer acc = do
+    parent <- sendBlockchainReq
+    stx <- sendTxQueueReq
+    bc <- mineFromQueue parent acc stx
+    case bc of
+        (_ :< Genesis) -> do 
+            mineServer acc
+        (block :< Node header _) -> do
+            print $ "Block Was Minted: " ++ (show $ _blockNumber header)
+            res <- sendNewBlockReq block header
+            print $ show res
+            mineServer acc
+
 -- Send Requests -------------------------------
 
 sendBlockchainReq :: IO Blockchain
@@ -117,8 +141,7 @@ sendTxListReq = do
     resBs <- httpLBS request
     return $ (\(ResTxList txs) -> txs) $ (B.decode $ getResponseBody resBs :: NodeRespond)
 
-
-sendNewTxReq :: SignedTx -> IO ()
+sendNewTxReq :: SignedTx -> IO () -- DISCARDED
 sendNewTxReq sTx = do 
     let request = defaultRequest {
         method = "POST",
@@ -129,7 +152,39 @@ sendNewTxReq sTx = do
     resBs <- httpLBS request
     print $ show (B.decode $ getResponseBody resBs :: NodeRespond)
 
+sendNewTxQueue :: [SignedTx] -> IO ()
+sendNewTxQueue sTx = do
+    let request = defaultRequest {
+        method = "POST",
+        host = encodeUtf8 $ T.pack nHost,
+        port = nPort,
+        requestBody = RequestBodyLBS (B.encode $ ReqNewTxQueue $ convertSignedTxToIntegerList sTx)
+        }
+    resBs <- httpLBS request
+    print $ show (B.decode $ getResponseBody resBs :: NodeRespond)
+
+sendTxQueueReq :: IO [SignedTxInteger]
+sendTxQueueReq = do
+    let request = defaultRequest {
+        method = "POST",
+        host = encodeUtf8 $ T.pack nHost,
+        port = nPort,
+        requestBody = RequestBodyLBS (B.encode $ ReqTxQueueList)
+        }
+    resBs <- httpLBS request
+    return $ (\(ResTxQueueList x) -> x) $ (B.decode $ getResponseBody resBs :: NodeRespond)
 ------------------------------------------------
+
+mineFromQueue :: Blockchain -> Account -> [SignedTxInteger] -> IO Blockchain
+mineFromQueue parentChain acc stx = do
+    if Prelude.length stx >= 1 
+        then do
+            let tmpTxs = Prelude.take 100 stx
+            chain <- mineBlock acc (convertSignedTxFromIntegerList tmpTxs) parentChain 
+            saveToQueue $ Prelude.drop 100 stx
+            return chain
+        else
+            return ((Block []) :< Genesis)
 
 verifyStx :: SignedTxInteger -> IO Bool
 verifyStx stxi = do

@@ -213,7 +213,7 @@ mineBlock acc signedTxPool parentChain = do
   else return ((Block []) :< Genesis)
         where
         --Difficulty Check:
-        checkValidation c = (Prelude.take 1 $ hashToString $ CL.unpack $ B.encode c) == "0"
+        checkValidation c = (Prelude.take 2 $ hashToString $ CL.unpack $ B.encode c) == "00"
         --Hash of parent blockchain:
         parentHash = hashBlockchain parentChain
         --Generates Miner Address For Miner Account

@@ -10,6 +10,7 @@ import System.IO
 import Control.DeepSeq
 
 import Control.Comonad.Cofree
+import Control.Exception
 import Crypto.Hash 
 
 import Data.Binary as B
@@ -47,6 +48,39 @@ injectTransactionId :: Transaction -> IO Transaction
 injectTransactionId tx = do
   rs <- generateRandomSeed
   return $ Transaction { _from = (_from tx), _to = (_to tx), _amount = (_amount tx), _text = (_text tx), _fee = (calculateTransactionFee tx), _id = Hash $ hashToString $ take 10 rs}
+
+-- Queue Txs -----------------------------------------------
+
+saveToQueue :: [SignedTxInteger] -> IO ()
+saveToQueue sTxI = do
+  tmpQueue <- (try $ saveQueue sTxI :: IO (Either SomeException ()))
+  case tmpQueue of
+    Left _ -> do
+      saveToQueue sTxI
+    Right _ -> do 
+      return ()
+
+saveQueue :: [SignedTxInteger] -> IO ()
+saveQueue sTxI = do
+  handle <- openFile txQueueFile WriteMode
+  hPutStr handle $ CL.unpack $ B.encode sTxI
+  hClose handle
+
+loadToQueue :: IO [SignedTxInteger]
+loadToQueue = do
+  handle <- openFile txQueueFile ReadMode
+  queue <- hGetContents handle
+  queue `deepseq` hClose handle 
+  return $ B.decode $ CL.pack queue
+
+appendToQueue :: [SignedTxInteger] -> IO ()
+appendToQueue sTxI = do
+  tmpQueue <- (try loadToQueue :: IO (Either SomeException [SignedTxInteger]))
+  case tmpQueue of
+    Left _ -> do
+      saveToQueue sTxI
+    Right x -> do
+      saveToQueue (sTxI ++ x)
 
 -- Ledger Utility -------------------------------------------
 
@@ -133,5 +167,35 @@ accountBalance led = loop $ (\(LedgerList l) -> l) led
   where
     loop [] = 0
     loop ((_, b) : xs) = b + (loop xs)
+
+
+-- TEST ------------------------------------------------
+
+generateRandomTxs :: PrivateKey -> Int -> IO [SignedTx]
+generateRandomTxs priv n = do
+  k <- exampleKey
+  let tmpAddr = snd $ snd k 
+  loopTXS priv tmpAddr n
+    where
+      loopTXS _ _ 0 = return []
+      loopTXS p a n = do
+        x <- buildAndSignTx a 100 "Test" p 
+        xs <- loopTXS p a (n-1)
+        return $ x : xs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

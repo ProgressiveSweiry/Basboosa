@@ -65,6 +65,9 @@ data ChainT a = Genesis |
 type Blockchain = Cofree ChainT Block
 -- (block :< Node BlockHeader parnet)
 
+emptyBlockchain :: Blockchain
+emptyBlockchain = ((Block []) :< Genesis)
+
 type Account_Balance = (Account, Integer)
 newtype LedgerList = LedgerList [Account_Balance] deriving (Eq, Show, Generic)
 
@@ -72,12 +75,16 @@ data NodeRequest = ReqFullBlockchain
                 |  ReqNewBlock Block BlockHeader
                 |  ReqNewTx SignedTxInteger
                 |  ReqTxList
+                |  ReqNewTxQueue [SignedTxInteger]
+                |  ReqTxQueueList
                 deriving (Eq, Show, Generic) 
 
 data NodeRespond = ResFullBlockchain CL.ByteString    --Blockchain
                 |  ResNewBlock
                 |  ResNewTx
                 |  ResTxList [Transaction]
+                |  ResNewTxQueue
+                |  ResTxQueueList [SignedTxInteger]
                 |  ResError
                 deriving (Eq, Show, Generic) 
 
@@ -130,6 +137,9 @@ txFile = "SignedTransaction.tx"
 
 chainFile :: FilePath
 chainFile = "Blockchain.chain"
+
+txQueueFile :: FilePath
+txQueueFile = "queue.tx"
 
 
 -- Hashing -------------------------------------------------------------------
