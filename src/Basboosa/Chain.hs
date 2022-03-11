@@ -212,8 +212,6 @@ mineBlock acc signedTxPool parentChain = do
     loop txsInteger 0 now currentBlockNum
   else return ((Block []) :< Genesis)
         where
-        --Difficulty Check:
-        checkValidation c = (Prelude.take 2 $ hashToString $ CL.unpack $ B.encode c) == "00"
         --Hash of parent blockchain:
         parentHash = hashBlockchain parentChain
         --Generates Miner Address For Miner Account
@@ -236,6 +234,10 @@ mineBlock acc signedTxPool parentChain = do
               saveChain chain -- SAVE CHAIN TO FILE
               return chain
             else loop tx (nonce + 1) n currentBlockNum
+
+
+checkValidation :: Blockchain -> Bool
+checkValidation c = (Prelude.take 2 $ hashToString $ CL.unpack $ B.encode c) == "00"
 
 -- Transactions List ------------------------------------------
 
