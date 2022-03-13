@@ -1,5 +1,8 @@
 module Main where
 
+import Basboosa.Network
 
 main :: IO ()
-main = putStrLn "Hello, Haskell!"
+main = do
+    print "Starting Server!"
+    mainNetwork

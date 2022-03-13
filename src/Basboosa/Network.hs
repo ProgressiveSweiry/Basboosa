@@ -16,6 +16,7 @@ import Data.Text.Encoding (encodeUtf8)
 import qualified Data.ByteString.Char8 as BS
 
 import Control.Comonad.Cofree
+import Control.Exception
 
 import Basboosa.Types
 import Basboosa.Chain
@@ -96,16 +97,21 @@ constructRespond req = case req of
 mineServer :: Account -> IO ()
 mineServer acc = do
     parent <- sendBlockchainReq
-    stx <- sendTxQueueReq
-    bc <- mineFromQueue parent acc stx
-    case bc of
-        (_ :< Genesis) -> do 
+    stx <- (try sendTxQueueReq :: IO (Either SomeException [SignedTxInteger]))
+    case stx of
+        Left _ -> do
+            print "Queue Exception"
             mineServer acc
-        (block :< Node header _) -> do
-            print $ "Block Was Minted: " ++ (show $ _blockNumber header)
-            res <- sendNewBlockReq block header
-            print $ show res
-            mineServer acc
+        Right txs -> do
+            bc <- mineFromQueue parent acc txs
+            case bc of
+                (_ :< Genesis) -> do 
+                    mineServer acc
+                (block :< Node header _) -> do
+                    print $ "Block Was Minted: " ++ (show $ _blockNumber header)
+                    res <- sendNewBlockReq block header
+                    print $ show res
+                    mineServer acc
 
 -- Send Requests -------------------------------
 
