@@ -46,7 +46,7 @@ nPort :: Int
 nPort = 8080
 
 nHost :: String
-nHost = "192.168.1.106"
+nHost = "localhost"
 
 -- Network ---------------------------
 
@@ -85,7 +85,7 @@ constructRespond req = case req of
         let tmp = convertSignedTxFromIntegerList $ Prelude.take 100 sTx
         tmpTxs <- tmp
         appendToQueue $ convertSignedTxToIntegerList tmpTxs
-        --bc <- mineFromQueue -- TODO : Seperate From Network
+        --bc <- mineFromQueue -- TODO : Seperate From Network | USE mineServer
         return ResNewTxQueue
     ReqTxQueueList -> do
         q <- loadToQueue
