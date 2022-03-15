@@ -47,7 +47,7 @@ nPort :: Int
 nPort = 8080
 
 nHost :: String
-nHost = "localhost"
+nHost = "192.168.1.142"
 
 -- Network ---------------------------
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
 module Basboosa.Chain where
 
@@ -125,7 +125,7 @@ mergeNewBlock block header bc = do
   tmpTxs <- (convertSignedTxFromIntegerList $ _txs block)
   let verifyTxs = txs == tmpTxs
       isHashCorrent = (_parentHash header ) == (hashBlockchain bc)
-      isBlockNumberCorrect = (\(block :< Node chainHeader parent) h -> (_blockNumber chainHeader + 1) == _blockNumber h) bc header
+      isBlockNumberCorrect = (\(block :< Node chainHeader _) h -> (_blockNumber chainHeader + 1) == _blockNumber h) bc header
   if verifyTxs && isHashCorrent && isBlockNumberCorrect 
     then do
       let newChain = (block :< Node header bc)

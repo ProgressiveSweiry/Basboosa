@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, PackageImports #-}
+{-# LANGUAGE OverloadedStrings, PackageImports, DeriveGeneric #-}
 
 module Basboosa.PubKey where
 
