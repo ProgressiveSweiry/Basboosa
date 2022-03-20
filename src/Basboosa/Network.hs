@@ -23,23 +23,6 @@ import Basboosa.Chain
 import Basboosa.Ledger
 import Basboosa.PubKey
 
-{-
-TODO:
-Fix File Reading - V
-Fix Duplicate Txs - Create List Of Tx ID TO Check Duplicates - V
-Send:
-- Genesis Tx - V
-- Full Blockchain - V
-- Full Txs - V
-- Full Headers - V
-Recieve Request:
-- Specific Txs, Headers
-- Add Transactions
-- Add Block (To Existing Blockchain)
-Network List:
-- Create List Of Nodes
-- Share List Of Nodes
--}
 
 -- Constants -------------------------
 
@@ -65,8 +48,12 @@ nodeApp request respond = do
 constructRespond :: NodeRequest -> IO NodeRespond
 constructRespond req = case req of
     ReqFullBlockchain -> do
-        fbc <- fullBlockchain
-        return (ResFullBlockchain fbc)
+        fbc <- (try fullBlockchain :: IO (Either SomeException ByteString))
+        case fbc of
+            Left _ -> do
+                return (ResFullBlockchain empty )
+            Right bc -> do
+                return (ResFullBlockchain bc)
     ReqNewBlock block header -> do
         bc <- loadChain
         newBC <- mergeNewBlock block header bc
@@ -100,17 +87,20 @@ mineServer acc = do
     stx <- (try sendTxQueueReq :: IO (Either SomeException [SignedTxInteger]))
     case stx of
         Left _ -> do
-            print "Queue Exception"
+            print "Queue Exception!"
             mineServer acc
         Right txs -> do
-            bc <- mineFromQueue parent acc txs
+            bc <- (try (mineFromQueue parent acc txs) :: IO (Either SomeException Blockchain) )
             case bc of
-                (_ :< Genesis) -> do 
+                Right (_ :< Genesis) -> do 
                     mineServer acc
-                (block :< Node header _) -> do
+                Right (block :< Node header _) -> do
                     print $ "Block Was Minted: " ++ (show $ _blockNumber header)
                     res <- sendNewBlockReq block header
                     print $ show res
+                    mineServer acc
+                Left _ -> do
+                    print "Mining Exception!"
                     mineServer acc
 
 -- Send Requests -------------------------------
